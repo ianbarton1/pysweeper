@@ -1,11 +1,15 @@
 from random import shuffle
+from tkinter import Tk
+import tkinter
 from neighbour import Neighbour
-from square import Square
+
+import square
 
 
 class Grid:
-    def __init__(self, x:int, y:int, m:int) -> None:
-        self.grid:list[Square] = [Square(is_mine = i < m) for i in range(x*y)]
+    def __init__(self, x:int, y:int, m:int, window:Tk) -> None:
+        self.tkinter_widget = tkinter.Frame(window)
+        self.grid:list[square.Square] = [square.Square(is_mine = i < m, parent_grid = self.tkinter_widget) for i in range(x*y)]
 
         self.x:int = x
         self.y:int = y
@@ -39,8 +43,18 @@ class Grid:
                     case Neighbour.BOTTOM_RIGHT:
                         self._set_neighbour(cell, cell_address, neighbour, 1, 1)
 
-            for cell in self.grid:
-                cell.calculate_clue()
+        for cell in self.grid:
+            cell.calculate_clue()
+
+        
+
+        for cell_index,cell in enumerate(self.grid):
+            this_x, this_y = self.get_xy_from_index(cell_index)
+            cell.button.grid(column=this_x, row=this_y)
+            print(this_x,this_y, cell_index)
+
+
+        self.tkinter_widget.pack()
             
 
     def _set_neighbour(self, cell, cell_address, neighbour, offset_x, offset_y):
@@ -57,7 +71,7 @@ class Grid:
 
         return grid_str
     
-    def get_cell_from_grid_ref(self, x:int, y:int)->Square|None:
+    def get_cell_from_grid_ref(self, x:int, y:int)->square.Square|None:
         if (x < 0 or x >= self.x or y < 0 or y >= self.y):
             return None
         
