@@ -52,7 +52,7 @@ class Square:
         # button_location_x, button_location_y  = self.button.grid_location()
 
         if self.is_mine:
-            guardian(self)
+            pass
 
         self.button.configure(
             text=self.clue if not self.is_mine else 'X', state='normal', command=None)
@@ -77,66 +77,3 @@ class Square:
             self.button.configure(text="")
 
 
-def guardian(start_square:Square):
-    if not start_square.is_mine:
-        return
-
-    start_square.locked_reference_count += 1
-    start_square.is_mine ^= True
-
-    prev = set()
-    next = set() #not sure if this needed will find out
-
-    for neighbour in start_square.neighbours.values():
-        if neighbour.is_opened and not neighbour.is_mine:
-            next.add(neighbour)
-
-    first_constraint = next.pop()
-    if fix_constraint(first_constraint, prev, next):
-        print("Constraints fixed")
-        return
-    else:
-        print("Constraints insoluable")
-
-    start_square.locked_reference_count -= 1
-    start_square.is_mine ^= True
-
-def fix_constraint(square:Square, prev_squares:set[Square], constraints_left:set[Square])->bool:
-    #base_case
-    if (len(constraints_left) == 0):
-        return True
-    try:
-        constraints_left.remove(square)
-    except KeyError:
-        pass
-    prev_squares.add(square)
-
-    constraint = constraints_left.pop()
-
-    current_count = square.count_mines_around()
-
-    for neighbour in square.neighbours.values():
-        neighbour.locked_reference_count += 1
-
-    for neighbour in square.neighbours.values():
-        if neighbour.is_opened and neighbour.locked_reference_count <= 1:
-            if current_count < square.clue and not square.is_mine:
-                neighbour.is_mine = True
-                if fix_constraint(constraint, prev_squares, constraints_left):
-                    return True
-                neighbour.is_mine = False
-            elif current_count > square.clue and square.is_mine:
-                neighbour.is_mine = False
-                if fix_constraint(constraint, prev_squares, constraints_left):
-                    return True
-                neighbour.is_mine = True
-
-    for neighbour in square.neighbours.values():
-        neighbour.locked_reference_count -= 1
-
-    
-    
-    prev_squares.remove(square)
-    constraints_left.add(square)
-
-    return False
