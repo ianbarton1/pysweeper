@@ -43,8 +43,7 @@ class Grid:
                     case Neighbour.BOTTOM_RIGHT:
                         self._set_neighbour(cell, cell_address, neighbour, 1, 1)
 
-        for cell in self.grid:
-            cell.calculate_clue()
+        
 
         
 
@@ -52,6 +51,9 @@ class Grid:
             this_x, this_y = self.get_xy_from_index(cell_index)
             cell.button.grid(column=this_x, row=this_y)
             print(this_x,this_y, cell_index)
+
+        for cell in self.grid:
+            cell.calculate_clue()
 
 
         self.tkinter_widget.pack()
