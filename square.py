@@ -53,13 +53,13 @@ class Square:
     def _cell_action(self, _):
         if self.is_flagged:
             return
-        
-        self.is_opened = True
         # button_location_x, button_location_y  = self.button.grid_location()
 
         if self.is_mine:
             return_code:bool = guardian(self)
             print("Guardian ran (output was): ",return_code)
+
+        self.is_opened = True
 
         self.button.configure(
             text=self.clue if not self.is_mine else 'X', state='normal', command=None, background='white')
