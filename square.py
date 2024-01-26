@@ -90,10 +90,15 @@ def guardian(start_square:Square)->bool:
     
     
     '''
-    if not start_square.is_mine:
-        return
+    mine_count_change:int = 0
 
-    start_square.is_mine = False
+    start_square.is_mine ^= True
+
+    if start_square.is_mine:
+        mine_count_change = 1
+    else:
+        mine_count_change = -1
+
     start_square.locked_reference_count += 1
 
     constraints_to_satisfy:list[Square] = []
@@ -107,7 +112,7 @@ def guardian(start_square:Square)->bool:
     
     # print("Before the first call", len(constraints_to_satisfy))
 
-    if fix_constraint(0, constraints_to_satisfy):
+    if fix_constraint(0, constraints_to_satisfy, mine_count_change, start_square):
 
         # print("after_calls:", len(constraints_to_satisfy))
 
@@ -145,15 +150,16 @@ def guardian(start_square:Square)->bool:
     return False
 
 
-def fix_constraint(constraint_index:int, constraint_list:list)->bool:
-    print("constraint_index:", constraint_index, len(constraint_list))
+def fix_constraint(constraint_index:int, constraint_list:list, mine_count_change:int, ref_square:Square)->bool:
+    print("constraint_index:", constraint_index, len(constraint_list), mine_count_change)
     try:
         current_square:Square = constraint_list[constraint_index]
     except IndexError:
-        return True
-    
-    print(current_square.clue, current_square.is_mine, current_square.is_opened)
-    
+        if correct_mine(ref_square, mine_count_change):
+            return True
+        
+        return False
+       
     target_count:int = current_square.clue
     current_count:int = current_square.count_mines_around()
     
@@ -167,7 +173,7 @@ def fix_constraint(constraint_index:int, constraint_list:list)->bool:
             if isinstance(neighbour, Square):
                 neighbour.locked_reference_count += 1
 
-        if fix_constraint(constraint_index+1, constraint_list):
+        if fix_constraint(constraint_index+1, constraint_list, mine_count_change, ref_square):
                 for neighbour in current_square.neighbours.values():
                     if isinstance(neighbour, Square):
                         neighbour.locked_reference_count -= 1       
@@ -185,18 +191,22 @@ def fix_constraint(constraint_index:int, constraint_list:list)->bool:
                 neighbour.is_mine ^= True
                 neighbour.locked_reference_count += 1
 
+                if neighbour.is_mine:
+                    mine_count_change += 1
+                else:
+                    mine_count_change -= 1
+
                 new_constraints_added:int = 0
 
                 #add neighbouring constraints (if not already in the constraint list)
                 for new_constraint in neighbour.neighbours.values():
                     if isinstance(new_constraint, Square):
-                        print(constraint_index, new_constraint.clue, new_constraint.locked_reference_count)
                         if not new_constraint.is_mine:
                             if new_constraint.is_opened and new_constraint not in constraint_list:
                                 constraint_list.append(new_constraint)
                                 new_constraints_added += 1
 
-                if fix_constraint(constraint_index, constraint_list):
+                if fix_constraint(constraint_index, constraint_list, mine_count_change,ref_square):
                     return True
                 
                 for i in range(new_constraints_added):
@@ -207,7 +217,67 @@ def fix_constraint(constraint_index:int, constraint_list:list)->bool:
 
     return False
 
+def correct_mine(start_square:Square, mine_difference:int)->bool:
+    '''
+        attempt to correct a mine difference by hiding/removing mine elsewhere
+    '''
+    
+    print("correct_mine", mine_difference)
+    if mine_difference == 0:
+        return True
+    
+    if mine_difference < 0:
+        mine_to_flip:bool = False
+    elif mine_difference > 0:
+        mine_to_flip:bool = True
+    
+    seen:set[Square] = set()
+    to_be_done:Queue[Square]= Queue()
 
+    to_be_done.put(start_square)
+    seen.add(start_square)
+
+    while to_be_done.not_empty:
+        try:
+            this_square = to_be_done.get(block=False)
+        except Empty:
+            break
+        
+        this_square_valid:bool = True
+
+        if not this_square.is_opened and this_square.is_mine == mine_to_flip and this_square != start_square:
+            this_square_valid = True
+        else:
+            this_square_valid = False
+
+
+        for neighbour in this_square.neighbours.values():
+            # print(neighbour, neighbour not in seen)
+            if isinstance(neighbour, Square) and neighbour not in seen:
+                to_be_done.put(neighbour)
+                seen.add(neighbour)
+
+            if isinstance(neighbour, Square) and neighbour.is_opened:
+                this_square_valid = False
+
+        if this_square_valid:
+            print(this_square.button)
+            this_square.is_mine ^= True
+            this_square.locked_reference_count += 1
+
+            if this_square.is_mine:
+                mine_difference += 1
+            else:
+                mine_difference -= 1
+
+            if correct_mine(start_square, mine_difference):
+                this_square.locked_reference_count -= 1
+                return True
+            else:
+                this_square.is_mine ^= True
+                this_square.locked_reference_count -= 1
+    
+    return False
     
 
 
