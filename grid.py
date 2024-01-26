@@ -7,7 +7,7 @@ import square
 
 
 class Grid:
-    def __init__(self, x:int, y:int, m:int, window:Tk, grid_string:str|None, open_string:str|None) -> None:
+    def __init__(self, x:int, y:int, m:int, window:Tk, grid_string:str|None = None, open_string:str|None = None) -> None:
         self.tkinter_widget = tkinter.Frame(window)
         self.grid:list[square.Square] = [square.Square(is_mine = i < m, parent_grid = self.tkinter_widget) for i in range(x*y)]
 
