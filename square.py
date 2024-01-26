@@ -162,9 +162,20 @@ def fix_constraint(constraint_index:int, constraint_list:list)->bool:
     elif target_count > current_count:
         mine_to_flip = False
     else:
-        if fix_constraint(constraint_index+1, constraint_list):            
+
+        for neighbour in current_square.neighbours.values():
+            if isinstance(neighbour, Square):
+                neighbour.locked_reference_count += 1
+
+        if fix_constraint(constraint_index+1, constraint_list):
+                for neighbour in current_square.neighbours.values():
+                    if isinstance(neighbour, Square):
+                        neighbour.locked_reference_count -= 1       
                 return True
         else:
+            for neighbour in current_square.neighbours.values():
+                if isinstance(neighbour, Square):
+                    neighbour.locked_reference_count -= 1
             return False
 
 
