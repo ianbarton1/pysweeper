@@ -105,11 +105,11 @@ def guardian(start_square:Square)->bool:
                 if neighbour.is_opened:
                     constraints_to_satisfy.append(neighbour)
     
-    print("Before the first call", len(constraints_to_satisfy))
+    # print("Before the first call", len(constraints_to_satisfy))
 
     if fix_constraint(0, constraints_to_satisfy):
 
-        print("after_calls:", len(constraints_to_satisfy))
+        # print("after_calls:", len(constraints_to_satisfy))
 
         seen:set[Square] = set()
         to_be_done:Queue[Square]= Queue()
@@ -118,7 +118,7 @@ def guardian(start_square:Square)->bool:
         seen.add(start_square)
 
         while to_be_done.not_empty:
-            print("qsize",to_be_done.qsize(), "seen", len(seen))
+            # print("qsize",to_be_done.qsize(), "seen", len(seen))
             try:
                 this_square = to_be_done.get(block=False)
             except Empty:
@@ -126,15 +126,15 @@ def guardian(start_square:Square)->bool:
             
 
             for neighbour in this_square.neighbours.values():
-                print(neighbour, neighbour not in seen)
+                # print(neighbour, neighbour not in seen)
                 if isinstance(neighbour, Square) and neighbour not in seen:
                     to_be_done.put(neighbour)
                     seen.add(neighbour)
 
-            if not this_square.is_opened:
-                this_square.calculate_clue()
-                if this_square.clue != this_square.count_mines_around():
-                    raise Exception('Clue square mismatch')
+            
+            this_square.calculate_clue()
+            if this_square.clue != this_square.count_mines_around():
+                raise Exception('Clue square mismatch')
 
         return True
 
@@ -152,6 +152,8 @@ def fix_constraint(constraint_index:int, constraint_list:list)->bool:
     except IndexError:
         return True
     
+    print(current_square.clue, current_square.is_mine, current_square.is_opened)
+    
     target_count:int = current_square.clue
     current_count:int = current_square.count_mines_around()
     
@@ -166,17 +168,18 @@ def fix_constraint(constraint_index:int, constraint_list:list)->bool:
             return False
 
 
-    for neighbour in current_square.neighbours.items():
+    for neighbour in current_square.neighbours.values():
         if isinstance(neighbour, Square):
-            if neighbour.is_mine == mine_to_flip and neighbour.locked_reference_count == 0:
+            if neighbour.is_mine == mine_to_flip and neighbour.locked_reference_count == 0 and not neighbour.is_opened:
                 neighbour.is_mine ^= True
                 neighbour.locked_reference_count += 1
 
                 new_constraints_added:int = 0
 
                 #add neighbouring constraints (if not already in the constraint list)
-                for new_constraint in neighbour.neighbours.items():
+                for new_constraint in neighbour.neighbours.values():
                     if isinstance(new_constraint, Square):
+                        print(constraint_index, new_constraint.clue, new_constraint.locked_reference_count)
                         if not new_constraint.is_mine:
                             if new_constraint.is_opened and new_constraint not in constraint_list:
                                 constraint_list.append(new_constraint)
