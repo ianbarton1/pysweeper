@@ -7,15 +7,23 @@ import square
 
 
 class Grid:
-    def __init__(self, x:int, y:int, m:int, window:Tk) -> None:
+    def __init__(self, x:int, y:int, m:int, window:Tk, grid_string:str|None, open_string:str|None) -> None:
         self.tkinter_widget = tkinter.Frame(window)
         self.grid:list[square.Square] = [square.Square(is_mine = i < m, parent_grid = self.tkinter_widget) for i in range(x*y)]
+
+        if grid_string is not None and isinstance(grid_string, str) and len(grid_string) == x * y:
+            for grid_index, grid_char in enumerate(grid_string):
+                print(grid_char, bool(int(grid_char)))
+                self.grid[grid_index].is_mine = bool(int(grid_char))
+        else:
+            shuffle(self.grid)
 
         self.x:int = x
         self.y:int = y
         self.m:int = m
 
-        shuffle(self.grid)
+        
+        
 
         #join neighbouring cells together baby
         for cell_index,cell in enumerate(self.grid):
@@ -57,6 +65,12 @@ class Grid:
 
 
         self.tkinter_widget.pack()
+
+        if open_string is not None and isinstance(open_string, str) and len(open_string) == x * y:
+            for open_index, open_char in enumerate(open_string):
+                print(open_char, bool(int(open_char)))
+                if bool(int(open_char)):
+                    self.grid[open_index]._cell_action('')
             
 
     def _set_neighbour(self, cell, cell_address, neighbour, offset_x, offset_y):
