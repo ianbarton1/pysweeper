@@ -9,14 +9,25 @@ import square
 class Grid:
     def __init__(self, x:int, y:int, m:int, window:Tk, grid_string:str|None = None, open_string:str|None = None) -> None:
         self.tkinter_widget = tkinter.Frame(window)
-        self.grid:list[square.Square] = [square.Square(is_mine = i < m, parent_grid = self.tkinter_widget) for i in range(x*y)]
+
+        SUB_SAMPLE_SIZE:int = 6
+        self.images_array:dict[tkinter.PhotoImage] = {i : tkinter.PhotoImage(file = f"assets/Minesweeper/MINESWEEPER_{i}.png").subsample(SUB_SAMPLE_SIZE,SUB_SAMPLE_SIZE) for i in range(9)}
+
+        self.images_array['F'] = tkinter.PhotoImage(file=f"assets/Minesweeper/MINESWEEPER_F.png").subsample(SUB_SAMPLE_SIZE,SUB_SAMPLE_SIZE)
+        self.images_array['M'] = tkinter.PhotoImage(file=f"assets/Minesweeper/MINESWEEPER_M.png").subsample(SUB_SAMPLE_SIZE,SUB_SAMPLE_SIZE)
+        self.images_array['X'] = tkinter.PhotoImage(file=f"assets/Minesweeper/MINESWEEPER_X.png").subsample(SUB_SAMPLE_SIZE,SUB_SAMPLE_SIZE)
+
+        self.grid:list[square.Square] = [square.Square(is_mine = i < m, parent_grid = self.tkinter_widget, grid = self, square_index= i, images = self.images_array) for i in range(x*y)]
 
         if grid_string is not None and isinstance(grid_string, str) and len(grid_string) == x * y:
             for grid_index, grid_char in enumerate(grid_string):
-                print(grid_char, bool(int(grid_char)))
                 self.grid[grid_index].is_mine = bool(int(grid_char))
         else:
             shuffle(self.grid)
+
+        for ind, cell in enumerate(self.grid):
+            if isinstance(cell, square.Square):
+                cell.square_index = ind
 
         self.x:int = x
         self.y:int = y
@@ -58,7 +69,8 @@ class Grid:
         for cell_index,cell in enumerate(self.grid):
             this_x, this_y = self.get_xy_from_index(cell_index)
             cell.button.grid(column=this_x, row=this_y)
-            print(this_x,this_y, cell_index)
+            # cell.button.place(x=this_x*10,y=this_y*10, width=1000,height=1000)
+            print(this_x*10, this_y*10)
 
         for cell in self.grid:
             cell.calculate_clue()
@@ -68,7 +80,6 @@ class Grid:
 
         if open_string is not None and isinstance(open_string, str) and len(open_string) == x * y:
             for open_index, open_char in enumerate(open_string):
-                print(open_char, bool(int(open_char)))
                 if bool(int(open_char)):
                     self.grid[open_index]._cell_action('')
             
