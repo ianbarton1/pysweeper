@@ -5,9 +5,14 @@ from neighbour import Neighbour
 
 
 class Square:
-    def __init__(self, is_mine: bool, parent_grid: tkinter.Frame):
+    def __init__(self, is_mine: bool, parent_grid: tkinter.Frame, grid, square_index, images):
         self.is_mine: bool = is_mine
         self.neighbours: dict[Neighbour, Square | None] = {}
+        self.square_index = square_index
+        self.all_squares = grid
+
+        self.images = images
+        
 
         for neighbour in Neighbour:
             self.neighbours[neighbour] = None
@@ -19,11 +24,11 @@ class Square:
 
         self.parent_grid = parent_grid
     
-        self.button = tkinter.Button(parent_grid, width=1, height=2, text=self.clue if not self.is_mine and self.is_opened else '', font=(
+        self.button = tkinter.Button(parent_grid,image=self.images['X'], width=36, height=36, compound='c', text=self.clue if not self.is_mine and self.is_opened else '', font=(
             'arial', 12))
         
         self.button.bind("<Button-1>", self._cell_action)
-        self.button.bind("<Button-2>", self._cell_flag)
+        self.button.bind("<Button-2>", self._cell_guardian)
         self.button.bind("<Button-3>", self._cell_flag)
 
         self.locked_reference_count:int = 0 #this will be used to check whether the square has been locked when implementing the guardian functionality
@@ -36,41 +41,90 @@ class Square:
                 mine_count += 1
         
         return mine_count
+    
+    def count_flags_around(self)->int:
+        flag_count = 0
+        # cycle through each neighbour and add to clue if it's a mine
+        for neighbour in Neighbour:
+            if self.neighbours[neighbour] and self.neighbours[neighbour].is_flagged:
+                flag_count += 1
+        
+        return flag_count
 
 
     def calculate_clue(self):
         '''Recalcuate the clue value for this cell'''
 
         self.clue = self.count_mines_around()
-        try:
-            if not self.is_opened:
-                self.button.configure(
-                text=self.clue if not self.is_mine else 'X', state='normal', foreground='black', background='yellow')
-        except AttributeError:
-            pass
-        
+        # try:
+        #     if not self.is_opened:
+        #         self.button.configure(
+        #         text=self.clue if not self.is_mine else 'X', state='normal', foreground='black', background='yellow')
+        # except AttributeError:
+        #     pass
+    
+
+    def _cell_guardian(self, _):
+        if True:
+            return_code:bool = guardian(self, False)
+            print("Guardian ran (output was): ",return_code)
+
 
     def _cell_action(self, _):
         if self.is_flagged:
             return
         # button_location_x, button_location_y  = self.button.grid_location()
 
-        if self.is_mine:
-            return_code:bool = guardian(self)
-            print("Guardian ran (output was): ",return_code)
+        print(self.is_opened,self.count_flags_around(), self.clue)
 
+        if self.is_opened and self.clue > 0 and self.count_flags_around() == self.clue:
+            for neighbour in self.neighbours.values():
+                if isinstance(neighbour, Square) and not neighbour.is_opened:
+                    neighbour._cell_action("")
+            return
+        
+        if self.is_opened:
+            return
+
+                
+        if self.is_mine:
+            guardian_is_active = self.require_guess()
+            print("Guardian Status: ",guardian_is_active)
+            if guardian_is_active:
+                print("Guardian process ran Status: ",guardian(self, True))
+            
         self.is_opened = True
 
         self.button.configure(
-            text=self.clue if not self.is_mine else 'X', state='normal', command=None, background='white')
+            image = self.images[self.clue] if not self.is_mine else self.images['M'], state='normal', command=None)
         
         
         if self.clue == 0 and not self.is_mine:
-            self.button.config(text="", state='disabled', background='blue')
+            self.button.config(image=self.images[0], state='disabled')
             for neighbour in self.neighbours.values():
                 if isinstance(neighbour, Square):
                     if not neighbour.is_opened:
                         neighbour._cell_action("")
+
+        print("Is Guess Required: ", self.require_guess())
+
+    def require_guess(self):
+        guess_required:bool = True
+
+        last_square_check:bool = True
+        for cell_ind,cell in enumerate(self.all_squares.grid):
+            if isinstance(cell, Square) and not cell.is_opened and not cell.is_mine:
+                last_square_check = False
+                if not guardian(cell, False):
+                    guess_required = False
+                    break
+        
+        if last_square_check:
+            guess_required = False
+        
+        return guess_required
+
+        
 
     def _cell_flag(self, _):
         if self.is_opened:
@@ -79,12 +133,12 @@ class Square:
         self.is_flagged ^= True
 
         if self.is_flagged:
-            self.button.configure(text="Flag")
+            self.button.configure(image=self.images['F'])
         else:
-            self.button.configure(text="")
+            self.button.configure(image=self.images['X'])
 
 
-def guardian(start_square:Square)->bool:
+def guardian(start_square:Square, make_changes:bool = True)->bool:
     '''
 
     
@@ -112,9 +166,13 @@ def guardian(start_square:Square)->bool:
     
     # print("Before the first call", len(constraints_to_satisfy))
 
-    if fix_constraint(0, constraints_to_satisfy, mine_count_change, start_square):
+    if fix_constraint(0, constraints_to_satisfy, mine_count_change, start_square, make_changes):
 
         # print("after_calls:", len(constraints_to_satisfy))
+
+        if not make_changes:
+            start_square.is_mine ^= True
+        start_square.locked_reference_count = 0
 
         seen:set[Square] = set()
         to_be_done:Queue[Square]= Queue()
@@ -140,22 +198,27 @@ def guardian(start_square:Square)->bool:
             this_square.calculate_clue()
             if this_square.clue != this_square.count_mines_around():
                 raise Exception('Clue square mismatch')
+            
+            if this_square.locked_reference_count != 0:
+                print (Exception(f'{this_square.square_index} cell remains locked!'))
+            
+        
 
         return True
 
 
-    start_square.is_mine = True
+    start_square.is_mine ^= True
     start_square.locked_reference_count = 0
 
     return False
 
 
-def fix_constraint(constraint_index:int, constraint_list:list, mine_count_change:int, ref_square:Square)->bool:
-    print("constraint_index:", constraint_index, len(constraint_list), mine_count_change)
+def fix_constraint(constraint_index:int, constraint_list:list, mine_count_change:int, ref_square:Square, make_changes:bool)->bool:
+    # print("constraint_index:", constraint_index, len(constraint_list), mine_count_change)
     try:
         current_square:Square = constraint_list[constraint_index]
     except IndexError:
-        if correct_mine(ref_square, mine_count_change):
+        if correct_mine(ref_square, mine_count_change, make_changes):
             return True
         
         return False
@@ -173,7 +236,7 @@ def fix_constraint(constraint_index:int, constraint_list:list, mine_count_change
             if isinstance(neighbour, Square):
                 neighbour.locked_reference_count += 1
 
-        if fix_constraint(constraint_index+1, constraint_list, mine_count_change, ref_square):
+        if fix_constraint(constraint_index+1, constraint_list, mine_count_change, ref_square, make_changes):
                 for neighbour in current_square.neighbours.values():
                     if isinstance(neighbour, Square):
                         neighbour.locked_reference_count -= 1       
@@ -206,7 +269,12 @@ def fix_constraint(constraint_index:int, constraint_list:list, mine_count_change
                                 constraint_list.append(new_constraint)
                                 new_constraints_added += 1
 
-                if fix_constraint(constraint_index, constraint_list, mine_count_change,ref_square):
+                if fix_constraint(constraint_index, constraint_list, mine_count_change,ref_square, make_changes):
+                    if not make_changes:
+                        neighbour.is_mine ^= True
+                    
+                    neighbour.locked_reference_count -= 1
+
                     return True
                 
                 for i in range(new_constraints_added):
@@ -214,15 +282,20 @@ def fix_constraint(constraint_index:int, constraint_list:list, mine_count_change
                 
                 neighbour.is_mine ^= True
                 neighbour.locked_reference_count -= 1
+                
+                if neighbour.is_mine:
+                    mine_count_change += 1
+                else:
+                    mine_count_change -= 1
 
     return False
 
-def correct_mine(start_square:Square, mine_difference:int)->bool:
+def correct_mine(start_square:Square, mine_difference:int, make_changes:bool)->bool:
     '''
         attempt to correct a mine difference by hiding/removing mine elsewhere
     '''
     
-    print("correct_mine", mine_difference)
+    # print("correct_mine", mine_difference)
     if mine_difference == 0:
         return True
     
@@ -261,7 +334,7 @@ def correct_mine(start_square:Square, mine_difference:int)->bool:
                 this_square_valid = False
 
         if this_square_valid:
-            print(this_square.button)
+            # print(this_square.button)
             this_square.is_mine ^= True
             this_square.locked_reference_count += 1
 
@@ -270,7 +343,10 @@ def correct_mine(start_square:Square, mine_difference:int)->bool:
             else:
                 mine_difference -= 1
 
-            if correct_mine(start_square, mine_difference):
+            if correct_mine(start_square, mine_difference, make_changes):
+                if not make_changes:
+                    this_square.is_mine ^= True
+
                 this_square.locked_reference_count -= 1
                 return True
             else:
