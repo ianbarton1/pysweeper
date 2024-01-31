@@ -1,6 +1,7 @@
 from random import shuffle
 from tkinter import Tk
 import tkinter
+from guess_checker import GuessChecker
 from neighbour import Neighbour
 
 import square
@@ -31,11 +32,8 @@ class Grid:
 
         self.x:int = x
         self.y:int = y
-        self.m:int = m
-
+        self.m:int = m   
         
-        
-
         #join neighbouring cells together baby
         for cell_index,cell in enumerate(self.grid):
             cell_address:tuple[int,int]|None = self.get_xy_from_index(cell_index)
@@ -62,13 +60,10 @@ class Grid:
                     case Neighbour.BOTTOM_RIGHT:
                         self._set_neighbour(cell, cell_address, neighbour, 1, 1)
 
-        
-
-        
-
         for cell_index,cell in enumerate(self.grid):
             this_x, this_y = self.get_xy_from_index(cell_index)
-            cell.button.grid(column=this_x, row=this_y)
+            # cell.button.grid(column=this_x, row=this_y,padx=2,pady=2)
+            cell.button_frame.grid(column=this_x,row=this_y,padx=1,pady=1)
             # cell.button.place(x=this_x*10,y=this_y*10, width=1000,height=1000)
             print(this_x*10, this_y*10)
 
@@ -77,11 +72,14 @@ class Grid:
 
 
         self.tkinter_widget.pack()
+        self.guess_checker:GuessChecker = GuessChecker()
 
         if open_string is not None and isinstance(open_string, str) and len(open_string) == x * y:
             for open_index, open_char in enumerate(open_string):
                 if bool(int(open_char)):
                     self.grid[open_index]._cell_action('')
+
+        
             
 
     def _set_neighbour(self, cell, cell_address, neighbour, offset_x, offset_y):
