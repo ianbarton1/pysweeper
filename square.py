@@ -13,6 +13,9 @@ class Square:
 
         self.images = images
         
+        self.skip_check = False
+
+        
 
         for neighbour in Neighbour:
             self.neighbours[neighbour] = None
@@ -23,9 +26,10 @@ class Square:
         self.calculate_clue()
 
         self.parent_grid = parent_grid
-    
-        self.button = tkinter.Button(parent_grid,image=self.images['X'], width=36, height=36, compound='c', text=self.clue if not self.is_mine and self.is_opened else '', font=(
+        self.button_frame = tkinter.Frame(parent_grid)
+        self.button = tkinter.Button(self.button_frame,image=self.images['X'], width=36, height=36, compound='c', text=self.clue if not self.is_mine and self.is_opened else '', font=(
             'arial', 12))
+        self.button.pack(padx=4,pady=4)
         
         self.button.bind("<Button-1>", self._cell_action)
         self.button.bind("<Button-2>", self._cell_guardian)
@@ -75,7 +79,7 @@ class Square:
             return
         # button_location_x, button_location_y  = self.button.grid_location()
 
-        print(self.is_opened,self.count_flags_around(), self.clue)
+        # print(self.is_opened,self.count_flags_around(), self.clue)
 
         if self.is_opened and self.clue > 0 and self.count_flags_around() == self.clue:
             for neighbour in self.neighbours.values():
@@ -85,10 +89,13 @@ class Square:
         
         if self.is_opened:
             return
-
+        
+        if not self.skip_check:
+            self.all_squares.guess_checker.test_square(self)
                 
         if self.is_mine:
-            guardian_is_active = self.require_guess()
+            # guardian_is_active = self.require_guess()
+            guardian_is_active = self.all_squares.guess_checker.check_guess_status()
             print("Guardian Status: ",guardian_is_active)
             if guardian_is_active:
                 print("Guardian process ran Status: ",guardian(self, True))
@@ -101,30 +108,38 @@ class Square:
         
         if self.clue == 0 and not self.is_mine:
             self.button.config(image=self.images[0], state='disabled')
+            self.skip_check = True
             for neighbour in self.neighbours.values():
                 if isinstance(neighbour, Square):
                     if not neighbour.is_opened:
+                        neighbour.skip_check = True
                         neighbour._cell_action("")
+                        neighbour.skip_check = False
+        if not self.skip_check:
+            print("Is Guess Required: ", self.all_squares.guess_checker.check_guess_status())
+        self.skip_check = False
 
-        print("Is Guess Required: ", self.require_guess())
+        # print("Is Guess Required: ", self.require_guess())
+        
+        
 
     def require_guess(self):
-        guess_required:bool = True
+        # guess_required:bool = True
 
-        last_square_check:bool = True
-        for cell_ind,cell in enumerate(self.all_squares.grid):
-            if isinstance(cell, Square) and not cell.is_opened and not cell.is_mine:
-                last_square_check = False
-                if not guardian(cell, False):
-                    guess_required = False
-                    break
+        # last_square_check:bool = True
+        # for cell_ind,cell in enumerate(self.all_squares.grid):
+        #     if isinstance(cell, Square) and not cell.is_opened and not cell.is_mine:
+        #         last_square_check = False
+        #         if not guardian(cell, False):
+        #             guess_required = False
+        #             break
         
-        if last_square_check:
-            guess_required = False
-        
-        return guess_required
+        # if last_square_check:
+        #     guess_required = False
 
         
+        return guardian(self, False)
+            
 
     def _cell_flag(self, _):
         if self.is_opened:
