@@ -65,7 +65,6 @@ class Grid:
             # cell.button.grid(column=this_x, row=this_y,padx=2,pady=2)
             cell.button_frame.grid(column=this_x,row=this_y,padx=1,pady=1)
             # cell.button.place(x=this_x*10,y=this_y*10, width=1000,height=1000)
-            print(this_x*10, this_y*10)
 
         for cell in self.grid:
             cell.calculate_clue()
