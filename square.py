@@ -105,7 +105,6 @@ class Square:
         self.button.configure(
             image = self.images[self.clue] if not self.is_mine else self.images['M'], state='normal', command=None)
         
-        
         if self.clue == 0 and not self.is_mine:
             self.button.config(image=self.images[0], state='disabled')
             self.skip_check = True
@@ -115,11 +114,13 @@ class Square:
                         neighbour.skip_check = True
                         neighbour._cell_action("")
                         neighbour.skip_check = False
+            self.skip_check = False
         if not self.skip_check:
-            print("Is Guess Required: ", self.all_squares.guess_checker.check_guess_status())
+            self.all_squares.guess_checker.test_square(self)
+        print("Is Guess Required: ", self.all_squares.guess_checker.check_guess_status())
         self.skip_check = False
 
-        # print("Is Guess Required: ", self.require_guess())
+        print("Is Guess Required: ", self.require_guess())
         
         
 
