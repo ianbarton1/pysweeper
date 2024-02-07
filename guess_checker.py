@@ -11,47 +11,6 @@ class GuessChecker():
         self.open_list:set[Square] = set()
     
     def test_square(self, square:Square)->bool:
-        # if isinstance(square, Square) and square.is_mine:
-        #     return self.check_guess_status()
-
-        # if square not in self.squares:
-        #     self.squares.add(square)
-            
-        # try:
-        #     self.unknown_squares.remove(square)
-        # except KeyError:
-        #     pass
-
-        # try:
-        #     self.known_squares.remove(square)
-        # except KeyError:
-        #     pass
-
-        # for neighbour_square in square.neighbours.values():
-        #     if isinstance(neighbour_square, Square) and neighbour_square not in self.squares:
-        #         self.squares.add(neighbour_square)
-        #         if neighbour_square.require_guess():
-        #             self.unknown_squares.add(neighbour_square)
-        #         else:
-        #             self.known_squares.add(neighbour_square)
-
-        # unknown_copy:set[Square] = copy(self.unknown_squares)
-        # known_copy:set[Square] = copy(self.known_squares)
-
-        # self.unknown_squares.clear()
-        # self.known_squares.clear()
-
-        # for test_square in unknown_copy.union(known_copy):
-        #     if test_square.require_guess():
-        #         self.unknown_squares.add(test_square)
-        #     else:
-        #         self.known_squares.add(test_square)
-
-        # if square in self.open_list:
-        #     return self.check_guess_status()
-        
-        # self.open_list.add(square)
-
         self.open_list.add(square)
 
         self.known_squares.clear()
@@ -89,14 +48,20 @@ class GuessChecker():
         return self.check_guess_status()
         
     def check_guess_status(self)->bool:
+        guess_required:bool = len(self.known_squares) == 0 or len(self.to_be_tested) == 0
         for square in self.open_list:
-            square.button_frame.configure(background='blue')
+            square.enable_button()
 
         for square in self.known_squares.union(self.known_mines):
-            square.button_frame.configure(background='green')
+            square.change_solve_status(True)
+            square.enable_button()
             
         for square in self.unknown_squares:
-            square.button_frame.configure(background='red')
+            square.change_solve_status(False)
+            if guess_required:
+                square.enable_button()
+            else:
+                square.disable_button()
 
 
-        return len(self.known_squares) == 0 or len(self.to_be_tested) == 0
+        return guess_required
