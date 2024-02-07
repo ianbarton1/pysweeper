@@ -2,8 +2,9 @@ from grid import Grid
 import tkinter as ui
 
 main_window = ui.Tk()
-grid = Grid(10, 10, 99, main_window, None, None)
-# grid = Grid(16, 16, 40, main_window, None, None)
+# grid = Grid(8, 8, 6, main_window, None, None)
+grid = Grid(16, 16, 50, main_window, None, None)
+# grid = Grid(32, 16, 102, main_window, None, None)
 # grid = Grid(30, 16, 99, main_window, None, None)
 #first_guess_scenario https://minesweepergame.com/strategy/guessing.php
 # grid = Grid(7, 4, 0, main_window, "0000000011111000000000001000", "0000000000000011101111110111")
