@@ -1,21 +1,25 @@
+import enum
 from queue import Empty, Queue
 import tkinter
 
 from neighbour import Neighbour
 
+class SquareSolveState(enum.Enum):
+    Solveable = {'flag': 'F_KNOWN', 'normal': 'X_KNOWN'}
+    NotSolveable = {'flag': 'F_UNKNOWN', 'normal': 'X_UNKNOWN'}
+    Indeterminate = {'flag': 'F', 'normal': 'X'} 
+
 
 class Square:
-    def __init__(self, is_mine: bool, parent_grid: tkinter.Frame, grid, square_index, images):
+    def __init__(self, is_mine: bool, parent_grid: tkinter.Frame, grid, square_index, images, image_size:int, enabled:bool):
         self.is_mine: bool = is_mine
         self.neighbours: dict[Neighbour, Square | None] = {}
         self.square_index = square_index
         self.all_squares = grid
 
         self.images = images
-        
+        self.solve_status = SquareSolveState.Indeterminate
         self.skip_check = False
-
-        
 
         for neighbour in Neighbour:
             self.neighbours[neighbour] = None
@@ -27,15 +31,38 @@ class Square:
 
         self.parent_grid = parent_grid
         self.button_frame = tkinter.Frame(parent_grid)
-        self.button = tkinter.Button(self.button_frame,image=self.images['X'], width=36, height=36, compound='c', text=self.clue if not self.is_mine and self.is_opened else '', font=(
-            'arial', 12))
-        self.button.pack(padx=4,pady=4)
-        
+        self.button = tkinter.Button(self.button_frame,image=self.images['X'], width=image_size, height=image_size, compound='c', state='normal')
+        self.button.pack(padx=0,pady=0)
+
+        self.enabled = not enabled
+
+        if enabled:
+            self.enable_button()
+        else:
+            self.disable_button()
+
+        self.locked_reference_count:int = 0  #this will be used to check whether the square has been locked when implementing the guardian functionality
+
+    def enable_button(self):
+        if self.enabled:
+            return    
+        self.enabled = True
+
         self.button.bind("<Button-1>", self._cell_action)
         self.button.bind("<Button-2>", self._cell_guardian)
         self.button.bind("<Button-3>", self._cell_flag)
 
-        self.locked_reference_count:int = 0 #this will be used to check whether the square has been locked when implementing the guardian functionality
+        self.button.configure(state='normal')
+
+    def disable_button(self):
+        if not self.enabled:
+            return
+        self.enabled = False
+
+        self.button.unbind("<Button-1>")
+        self.button.unbind("<Button-2>")
+        self.button.unbind("<Button-3>")
+        self.button.configure(state='disabled')
 
     def count_mines_around(self)->int:
         mine_count = 0
@@ -74,7 +101,7 @@ class Square:
             print("Guardian ran (output was): ",return_code)
 
 
-    def _cell_action(self, _):
+    def _cell_action(self, arg):
         if self.is_flagged:
             return
         # button_location_x, button_location_y  = self.button.grid_location()
@@ -93,17 +120,22 @@ class Square:
         if not self.skip_check:
             self.all_squares.guess_checker.test_square(self)
                 
-        if self.is_mine:
+        if self.is_mine and not self.skip_check:
             # guardian_is_active = self.require_guess()
             guardian_is_active = self.all_squares.guess_checker.check_guess_status()
             print("Guardian Status: ",guardian_is_active)
             if guardian_is_active:
                 print("Guardian process ran Status: ",guardian(self, True))
-            
+
+        if self.is_mine:
+            self.all_squares.uncover_all_mines()
+
         self.is_opened = True
 
-        self.button.configure(
-            image = self.images[self.clue] if not self.is_mine else self.images['M'], state='normal', command=None)
+        
+
+        # self.button.configure(
+        #     image = self.images[self.clue] if not self.is_mine else self.images['M'], state='normal', command=None)
         
         if self.clue == 0 and not self.is_mine:
             self.button.config(image=self.images[0], state='disabled')
@@ -111,16 +143,23 @@ class Square:
             for neighbour in self.neighbours.values():
                 if isinstance(neighbour, Square):
                     if not neighbour.is_opened:
+                        neighbour.enable_button()
                         neighbour.skip_check = True
-                        neighbour._cell_action("")
+                        neighbour._cell_action(None)
                         neighbour.skip_check = False
             self.skip_check = False
-        if not self.skip_check:
+
+        
+        if arg is not None and not self.skip_check:
             self.all_squares.guess_checker.test_square(self)
-        print("Is Guess Required: ", self.all_squares.guess_checker.check_guess_status())
+
+        
+        # print("Is Guess Required: ", self.all_squares.guess_checker.check_guess_status())
         self.skip_check = False
 
-        print("Is Guess Required: ", self.require_guess())
+        # print("Is Guess Required: ", self.require_guess())
+
+        self.update_tile()
         
         
 
@@ -148,11 +187,75 @@ class Square:
 
         self.is_flagged ^= True
 
-        if self.is_flagged:
-            self.button.configure(image=self.images['F'])
-        else:
-            self.button.configure(image=self.images['X'])
+        self.update_tile()
 
+
+    def _open_mines(self):
+        for square in self.all_squares.grid:
+            if isinstance(square, Square):
+                if square.is_mine and square.is_opened:
+                    self._cell_action(None)
+
+    def change_solve_status(self, known:bool|None):
+        if known:
+            self.solve_status = SquareSolveState.Solveable
+        elif not known and known is not None:
+            self.solve_status = SquareSolveState.NotSolveable
+        else:
+            self.solve_status = SquareSolveState.Indeterminate
+
+        self.update_tile()
+
+    def update_tile(self):
+        if not self.is_opened:
+            if self.is_flagged:
+                self.button.configure(image = self.images[self.solve_status.value['flag']])
+            else:
+                self.button.configure(image = self.images[self.solve_status.value['normal']])
+        else:
+            if self.is_mine:
+                self.button.configure(image = self.images['M'])
+            else:
+                self.button.configure(image = self.images[self.clue])
+
+    def opening_value(self)->int:
+        '''Return how many squares will be opened by this square'''
+
+        if self.is_mine:
+            return 0
+        elif self.clue > 0:
+            return 1
+        
+        opened_squares:set[Square] = set()
+
+        to_be_opened_queue:Queue[Square] = Queue()
+        to_be_opened_queue.put(self)
+
+        queue_hit_test:set[Square] = set()
+        queue_hit_test.add(self)
+
+        while to_be_opened_queue.not_empty:
+            try:
+                current_square = to_be_opened_queue.get_nowait()
+            except Empty:
+                break
+            
+            print(to_be_opened_queue.qsize())
+            opened_squares.add(current_square)
+
+            for neighbour in current_square.neighbours.values():
+                if isinstance(neighbour,Square):
+                    if neighbour not in opened_squares.union(queue_hit_test):
+                        if neighbour.clue == 0:
+                            to_be_opened_queue.put(neighbour)
+                            queue_hit_test.add(neighbour)
+                        else:
+                            opened_squares.add(neighbour)
+
+        return len(opened_squares)
+                        
+    
+        
 
 def guardian(start_square:Square, make_changes:bool = True)->bool:
     '''
