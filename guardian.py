@@ -26,7 +26,7 @@ def run_guardian_process(start_square:square.Square):
             if neighbour.is_opened and not neighbour.is_mine:
                 constraints_to_be_fixed.put(neighbour)
 
-    print(constraints_to_be_fixed)
+    # print(constraints_to_be_fixed)
     input()
 
     #post

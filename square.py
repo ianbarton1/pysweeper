@@ -123,14 +123,17 @@ class Square:
         if self.is_mine and not self.skip_check:
             # guardian_is_active = self.require_guess()
             guardian_is_active = self.all_squares.guess_checker.check_guess_status()
-            print("Guardian Status: ",guardian_is_active)
+            # print("Guardian Status: ",guardian_is_active)
             if guardian_is_active:
-                print("Guardian process ran Status: ",guardian(self, True))
+                guardian(self, True)
+                # print("Guardian process ran Status: ",)
 
         if self.is_mine:
             self.all_squares.uncover_all_mines()
 
         self.is_opened = True
+
+
 
         
 
@@ -148,22 +151,22 @@ class Square:
                         neighbour._cell_action(None)
                         neighbour.skip_check = False
             self.skip_check = False
-
-        
+          
         if arg is not None and not self.skip_check:
             self.all_squares.guess_checker.test_square(self)
 
         
         # print("Is Guess Required: ", self.all_squares.guess_checker.check_guess_status())
         self.skip_check = False
+        if arg is not None:
+            self.all_squares.update_stats()
 
         # print("Is Guess Required: ", self.require_guess())
 
-        self.update_tile()
-        
+        self.update_tile()     
         
 
-    def require_guess(self):
+    def require_guess(self, changed_squares:set["Square"]|None = None):
         # guess_required:bool = True
 
         # last_square_check:bool = True
@@ -178,7 +181,7 @@ class Square:
         #     guess_required = False
 
         
-        return guardian(self, False)
+        return guardian(self, False, changed_squares)
             
 
     def _cell_flag(self, _):
@@ -186,8 +189,10 @@ class Square:
             return
 
         self.is_flagged ^= True
-
+        
+        self.all_squares.update_stats()
         self.update_tile()
+        
 
 
     def _open_mines(self):
@@ -240,7 +245,7 @@ class Square:
             except Empty:
                 break
             
-            print(to_be_opened_queue.qsize())
+            # print(to_be_opened_queue.qsize())
             opened_squares.add(current_square)
 
             for neighbour in current_square.neighbours.values():
@@ -257,7 +262,7 @@ class Square:
     
         
 
-def guardian(start_square:Square, make_changes:bool = True)->bool:
+def guardian(start_square:Square, make_changes:bool = True, changed_squares:set[Square]|None = None)->bool:
     '''
 
     
@@ -274,6 +279,9 @@ def guardian(start_square:Square, make_changes:bool = True)->bool:
 
     start_square.locked_reference_count += 1
 
+    if changed_squares is not None:
+        changed_squares.add(start_square)
+
     constraints_to_satisfy:list[Square] = []
     # do something
 
@@ -285,7 +293,7 @@ def guardian(start_square:Square, make_changes:bool = True)->bool:
     
     # print("Before the first call", len(constraints_to_satisfy))
 
-    if fix_constraint(0, constraints_to_satisfy, mine_count_change, start_square, make_changes):
+    if fix_constraint(0, constraints_to_satisfy, mine_count_change, start_square, make_changes, changed_squares):
 
         # print("after_calls:", len(constraints_to_satisfy))
 
@@ -321,25 +329,34 @@ def guardian(start_square:Square, make_changes:bool = True)->bool:
             if this_square.locked_reference_count != 0:
                 print (Exception(f'{this_square.square_index} cell remains locked!'))
             
-        
+        # print("True", len(changed_squares))
 
         return True
 
 
     start_square.is_mine ^= True
+
+    if changed_squares is not None:
+        try:
+            changed_squares.remove(start_square)
+        except KeyError as e:
+            raise e
+
     start_square.locked_reference_count = 0
+
+    # print("False", len(changed_squares))
 
     return False
 
 
-def fix_constraint(constraint_index:int, constraint_list:list, mine_count_change:int, ref_square:Square, make_changes:bool)->bool:
+def fix_constraint(constraint_index:int, constraint_list:list[Square], mine_count_change:int, ref_square:Square, make_changes:bool, changed_squares:set[Square]|None)->bool:
     # print("constraint_index:", constraint_index, len(constraint_list), mine_count_change)
     try:
         current_square:Square = constraint_list[constraint_index]
     except IndexError:
         if correct_mine(ref_square, mine_count_change, make_changes):
             return True
-        
+        # print("Failed due to mine count", current_square.square_index)
         return False
        
     target_count:int = current_square.clue
@@ -351,26 +368,33 @@ def fix_constraint(constraint_index:int, constraint_list:list, mine_count_change
         mine_to_flip = False
     else:
 
-        for neighbour in current_square.neighbours.values():
-            if isinstance(neighbour, Square):
-                neighbour.locked_reference_count += 1
+        # for neighbour in current_square.neighbours.values():
+        #     if isinstance(neighbour, Square):
+        #         neighbour.locked_reference_count += 1
 
-        if fix_constraint(constraint_index+1, constraint_list, mine_count_change, ref_square, make_changes):
-                for neighbour in current_square.neighbours.values():
-                    if isinstance(neighbour, Square):
-                        neighbour.locked_reference_count -= 1       
+        next_constraint_index = constraint_index + 1
+
+        # print("next_constraint_index", next_constraint_index)
+        if fix_constraint(next_constraint_index, constraint_list, mine_count_change, ref_square, make_changes, changed_squares):
+                # for neighbour in current_square.neighbours.values():
+                #     if isinstance(neighbour, Square):
+                #         neighbour.locked_reference_count -= 1
+
                 return True
         else:
-            for neighbour in current_square.neighbours.values():
-                if isinstance(neighbour, Square):
-                    neighbour.locked_reference_count -= 1
+            # for neighbour in current_square.neighbours.values():
+            #     if isinstance(neighbour, Square):
+            #         neighbour.locked_reference_count -= 1
+            # print("constaint not satisfiable",  current_square.square_index)
             return False
-
-
     for neighbour in current_square.neighbours.values():
         if isinstance(neighbour, Square):
             if neighbour.is_mine == mine_to_flip and neighbour.locked_reference_count == 0 and not neighbour.is_opened:
                 neighbour.is_mine ^= True
+
+                if changed_squares is not None:
+                    changed_squares.add(neighbour)
+
                 neighbour.locked_reference_count += 1
 
                 if neighbour.is_mine:
@@ -384,11 +408,12 @@ def fix_constraint(constraint_index:int, constraint_list:list, mine_count_change
                 for new_constraint in neighbour.neighbours.values():
                     if isinstance(new_constraint, Square):
                         if not new_constraint.is_mine:
-                            if new_constraint.is_opened and new_constraint not in constraint_list:
+                            if new_constraint.is_opened: 
+                            # and new_constraint not in constraint_list:
                                 constraint_list.append(new_constraint)
                                 new_constraints_added += 1
 
-                if fix_constraint(constraint_index, constraint_list, mine_count_change,ref_square, make_changes):
+                if fix_constraint(constraint_index, constraint_list, mine_count_change,ref_square, make_changes, changed_squares):
                     if not make_changes:
                         neighbour.is_mine ^= True
                     
@@ -400,13 +425,19 @@ def fix_constraint(constraint_index:int, constraint_list:list, mine_count_change
                     constraint_list.pop()
                 
                 neighbour.is_mine ^= True
+
+                if changed_squares is not None:
+                    try:
+                        changed_squares.remove(neighbour)
+                    except KeyError as e:
+                        raise e
                 neighbour.locked_reference_count -= 1
                 
                 if neighbour.is_mine:
                     mine_count_change += 1
                 else:
                     mine_count_change -= 1
-
+    # print("constaint not satisfiable 2", current_square.square_index)
     return False
 
 def correct_mine(start_square:Square, mine_difference:int, make_changes:bool)->bool:
